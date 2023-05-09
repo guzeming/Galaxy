@@ -4,63 +4,72 @@ using UnityEngine;
 
 public class PlayerController : MonoBehaviour
 {
-    private CharacterController cc;
-    public float speed = 4;
-    public float Vs = 1;
-    public float Hs = 1;
+    [Header("移动速度")]
+    public float speed = 2f;
+    [Header("检测范围")]
+    public float checkRadius = 0.5f;
+    [Header("检测层级")]
+    public LayerMask checkLayout;
+    [Header("跳跃高度")]
+    public float jumpHeight = 5f;
+    [Header("重力")]
+    public float gravity = 9.8f;
+
+    //角色控制组件
+    private CharacterController characterController;
+    //碰撞检测体
+    private Transform checkGround;
+    //是否接触地面
+    private bool isGround;
+    //用于计算下降的速度，x和z没什么用，默认为0
+    private Vector3 velocity;
+
+    private void Awake()
+    {
+        //获取角色控制组件
+        characterController = GetComponent<CharacterController>();
+        //获取碰撞检测体
+        checkGround = transform.Find("CheckGround");
+    }
+
+    // Start is called before the first frame update
     void Start()
     {
-        cc = GetComponent<CharacterController>();
+
     }
 
+    // Update is called once per frame
     void Update()
     {
-        /*// 水平移动 返回的值是浮点数 区间[-1,1]，按A是-1 按D是1，正好对应左右
-        float h = Input.GetAxisRaw("Horizontal");
-        // 垂直移动 返回的值是浮点数 区间[-1,1]，按S是-1 按W是1，正好对应上下
-        float v = Input.GetAxisRaw("Vertical");
-        cc.SimpleMove(new Vector3(h, 0, v) * speed);*/
-        Vector3 trans = Vector3.zero;
-
-        if (Input.GetKey(KeyCode.W))
+        //球型检测 checkRadius检测半径尽量调小一点，太大了会出现连跳的情况
+        isGround = Physics.CheckSphere(checkGround.position, checkRadius, checkLayout);
+        //如果触碰地面并且下降速度小于0，速度就不在变化，小编亲测:给小于0的值会比给0效果更好
+        if (isGround && velocity.y < 0)
         {
-            trans += transform.forward;
-            //transform.Translate(Vector3.forward * speed, Space.Self);
+            velocity.y = -2f;
         }
-
-        if (Input.GetKey(KeyCode.S))
-        {
-            trans +=  -transform.forward;
-            //transform.Translate(Vector3.back * speed, Space.Self);
-        }
-
-        if (Input.GetKey(KeyCode.A))
-        {
-            trans +=  -transform.right;
-            //transform.Translate(Vector3.left * speed, Space.Self);
-        }
-
-        if (Input.GetKey(KeyCode.D))
-        {
-            trans += transform.right;
-            //transform.Translate(Vector3.right * speed, Space.Self);
-        }
-
-        float x = Input.GetAxis("Mouse X");
-        float y = Input.GetAxis("Mouse Y");
-        if (Mathf.Abs(x) > 0.1f || Mathf.Abs(y) > 0.1)
-        {
-            transform.Rotate(Vector3.up, Input.GetAxis("Mouse X") * Hs);
-            //transform.Rotate(Vector3.left, Input.GetAxis("Mouse Y") * Vs);
-            Debug.Log(transform.forward);
-            //transform.Rotate(Vector3.left, Input.GetAxis("Mouse Y") * Vs);
-            //transform.LookAt(targetDir + transform.position);
-        }
-
-        cc.SimpleMove(trans * speed);
-
+        //左右移动变化值
+        float horizontal = Input.GetAxis("Horizontal") * speed * Time.deltaTime;
+        //上下移动变化值
+        float vertical = Input.GetAxis("Vertical") * speed * Time.deltaTime;
+        //算出移动方向向量
+        Vector3 moveDir = transform.forward * vertical + transform.right * horizontal;
+        //人物移动
+        this.transform.LookAt(moveDir);
+        characterController.Move(moveDir);
         
+
+        //如果接触地面并且按下空格键，就给一个向上的速度，实现跳跃。
+        if (isGround && Input.GetKeyDown(KeyCode.Space))
+        {
+            velocity.y = Mathf.Sqrt(jumpHeight * 2f * gravity);
+        }
+        //在重力作用下，速度不断减小，为负数时开始下降，这样赋值感觉更为真实
+        velocity.y -= gravity * Time.deltaTime;
+        //只完成向下的移动
+        characterController.Move(velocity * Time.deltaTime);
     }
+
 
 }
 
